@@ -1,0 +1,5 @@
+{
+    "TOKEN": "YOUR_TOKEN_HERE",
+    "LOG_LEVEL": "DEBUG", // INFO | ERROR | DEBUG
+    "IMAGE_MODE": "base64" // base64 | url
+}

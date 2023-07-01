@@ -1,0 +1,24 @@
+{
+  "name": "notion2anki",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bin": "./index.js",
+  "pkg": {
+    "assets": [
+      "node_modules/**/*",
+      "config.jsonc"
+    ],
+    "outputPath": "dist"
+  },
+  "dependencies": {
+    "@notionhq/client": "^2.2.5",
+    "axios": "^1.4.0"
+  },
+  "description": ""
+}
