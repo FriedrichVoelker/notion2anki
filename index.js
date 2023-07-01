@@ -68,7 +68,9 @@ const initConvert = async (input, output_path) => {
             console.log("Invalid notion url");
             process.exit(1);
         }
-        const pageId = pageIdPart1[1].split("?")[0];
+
+        // get last part of url
+        const pageId = pageIdPart1[pageIdPart1.length - 1].split("?")[0];
         if(!pageId){
             console.log("Invalid notion url");
             process.exit(1);
