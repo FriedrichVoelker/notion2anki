@@ -1,7 +1,0 @@
-{
-    "TOKEN": "YOUR_TOKEN_HERE",
-    "LOG_LEVEL": "ERROR",  // INFO | ERROR | DEBUG
-    "IMAGE_MODE": "folder", // base64 | url | folder
-    "MEDIA_FOLDER": "YOUR_ANKI_MEDIA_FOLDER", // path to your media folder
-    "ANKI_MODE": true // true | false
-}
