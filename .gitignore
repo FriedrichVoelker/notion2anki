@@ -3,3 +3,4 @@ output
 dist
 dev_data
 config.jsonc
+output.html
