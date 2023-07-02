@@ -84,21 +84,36 @@ const initConvert = async (input, output_path) => {
         try{
             response = await notion.blocks.children.list({
                 block_id: pageId,
-                page_size: 50
+                page_size: 100
             })
         }catch(e){
             log("error", "Invalid notion url, unknown error");
             process.exit(1);
         }
 
-        const blocks = response.results;
+        let blocks = response.results;
+
+        if(response.has_more){
+            log("info", "More than 100 blocks found, fetching more...")
+            while(response.has_more){
+                response = await notion.blocks.children.list({
+                    block_id: pageId,
+                    page_size: 100,
+                    start_cursor: response.next_cursor
+                })
+                blocks = blocks.concat(response.results);
+                log("debug", response)
+            }
+        }
+        // log("debug", blocks)
 
         for(let block of blocks){
-            log("debug", block);
+            // log("debug", block);
             block = await notion.blocks.retrieve({ block_id: block.id })
 
             html += await handleBlock(block);
         }
+        // process.exit(0);
         log("info", `Writing to ${output_path}`)
         // if file does not exist, create it
         if(!fs.existsSync(output_path)){
@@ -124,7 +139,7 @@ const initConvert = async (input, output_path) => {
 const handleBlock = async (block) => {
 
     log("info", `Handling block ${block.id}`)
-    // log("debug", block);
+    log("debug", block);
 
     let blockHtml = "";
 
@@ -133,6 +148,17 @@ const handleBlock = async (block) => {
         `;
         for(const child of block.paragraph.rich_text){
             blockHtml += renderBlock(child);
+        }
+
+        if(block.has_children){
+            const children = await notion.blocks.children.list({
+                block_id: block.id,
+                page_size: 100
+            })
+            const childBlocks = children.results;
+            for(const child of childBlocks){
+                blockHtml += await handleBlock(child);
+            }
         }
         blockHtml += `</p>
         `;
@@ -204,7 +230,7 @@ const handleBlock = async (block) => {
         // get children
         const children = await notion.blocks.children.list({
             block_id: block.id,
-            page_size: 50
+            page_size: 100
         })
         const childBlocks = children.results;
         blockHtml += `style="display:grid;grid-template-columns:repeat(${childBlocks.length -1 }, 1fr) auto;gap:20px;">
@@ -221,7 +247,7 @@ const handleBlock = async (block) => {
         `
         const children = await notion.blocks.children.list({
             block_id: block.id,
-            page_size: 50
+            page_size: 100
         })
         const childBlocks = children.results;
         for(const child of childBlocks){
@@ -249,7 +275,7 @@ const handleBlock = async (block) => {
         `
         const children = await notion.blocks.children.list({
             block_id: block.id,
-            page_size: 50
+            page_size: 100
         })
         const childBlocks = children.results;
         for(const child of childBlocks){
