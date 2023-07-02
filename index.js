@@ -292,6 +292,18 @@ const handleBlock = async (block) => {
         for(const child of block.callout.rich_text){
             blockHtml += renderBlock(child);
         }
+
+        if(block.has_children){
+            const children = await notion.blocks.children.list({
+                block_id: block.id,
+                page_size: 100
+            })
+            const childBlocks = children.results;
+            for(const child of childBlocks){
+                blockHtml += await handleBlock(child);
+            }
+        }
+
         blockHtml += `</div>
         `
     }
