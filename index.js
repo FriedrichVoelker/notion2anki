@@ -50,6 +50,7 @@ const TYPE = {
     BULLET_LIST: "bulleted_list_item",
     TOGGLE: "toggle",
     CALLOUT: "callout",
+    NUMBERED_LIST: "numbered_list_item"
 
 }
 
@@ -109,43 +110,63 @@ const initConvert = async (input, output_path) => {
 
         for(let block of blocks){
             // log("debug", block);
-            block = await notion.blocks.retrieve({ block_id: block.id })
-
-            html += await handleBlock(block);
-        }
-        // process.exit(0);
-        log("info", `Writing to ${output_path}`)
-        // if file does not exist, create it
-        if(!fs.existsSync(output_path)){
-            fs.writeFileSync(output_path, "");
-        }
-        try{
-            fs.writeFileSync(output_path, html);
-            log("info", "Done!")
-            process.exit(0);
-        }catch(e){
-            log("error", "File could not be created, default to output.html")
             try{
-                fs.writeFileSync("output.html", html);
-                log("info", "Done!")
-                process.exit(0);
+                block = await notion.blocks.retrieve({ block_id: block.id })
+
+                html += await handleBlock(block);
             }catch(e){
-                log("error", "Error while writing to output.html")
-                process.exit(1);
+                log("error", "Error while handling block, stopping...")
+                saveToFile(html, output_path, true);
+                // process.exit(1);
             }
         }
+        saveToFile(html, output_path);
+        // process.exit(0);
 }
 
+const saveToFile = async (html, output_path, error = null) => {
+    log("info", `Writing to ${output_path}`)
+    // if file does not exist, create it
+    if(!fs.existsSync(output_path)){
+        fs.writeFileSync(output_path, "");
+    }
+    try{
+        fs.writeFileSync(output_path, html);
+        log("info", "Done!")
+        process.exit(!error ? 0 : 1);
+    }catch(e){
+        log("error", "File could not be created, default to output.html")
+        try{
+            fs.writeFileSync("output.html", html);
+            log("info", "Done!")
+            process.exit(!error ? 0 : 1);
+        }catch(e){
+            log("error", "Error while writing to output.html")
+            process.exit(1);
+        }
+    }
+}
+
+
+let isNumberedList = false;
+let isBulletList = false;
 const handleBlock = async (block) => {
 
     log("info", `Handling block ${block.id}`)
     log("debug", block);
 
+
     let blockHtml = "";
 
+    let blockTag = "";
+    let blockStyle = "";
+    let blockAttributes = "";
+
+
     if(block.type == TYPE.PARAGRAPH){
-        blockHtml += `<p>
-        `;
+        // blockHtml += `<p data-id="${block.id}">
+        // `;
+        blockTag = "p";
         for(const child of block.paragraph.rich_text){
             blockHtml += renderBlock(child);
         }
@@ -160,33 +181,38 @@ const handleBlock = async (block) => {
                 blockHtml += await handleBlock(child);
             }
         }
-        blockHtml += `</p>
-        `;
+        // blockHtml += `</p>
+        // `;
     }
 
     if(block.type == TYPE.DIVIDER){
-        blockHtml += `<hr>
-        `
+        // blockHtml += `<hr data-id="${block.id}">
+        // `
+        blockTag = "hr";
     }
 
     if(block.type == TYPE.HEADING_1){
-        blockHtml += `<h1 style='background-color:#f3d16e;'>
-        `;
+        // blockHtml += `<h1 data-id="${block.id}" style='background-color:#f3d16e;'>
+        // `;
+        blockTag = "h1";
+        blockStyle = "background-color:#f3d16e;";
         for(const child of block.heading_1.rich_text){
             blockHtml += renderBlock(child);
         }
-        blockHtml += `</h1>
-        `;
+        // blockHtml += `</h1>
+        // `;
     }
 
     if(block.type == TYPE.HEADING_2){
-        blockHtml += `<h2 style='background-color:#f3d16e;'>
-        `;
+        // blockHtml += `<h2 data-id="${block.id}" style='background-color:#f3d16e;'>
+        // `;
+        blockTag = "h2";
+        blockStyle = "background-color:#f3d16e;";
         for(const child of block.heading_2.rich_text){
             blockHtml += renderBlock(child);
         }
-        blockHtml += `</h2>
-        `;
+        // blockHtml += `</h2>
+        // `;
     }
 
     if(block.type == TYPE.HEADING_3){
@@ -199,52 +225,64 @@ const handleBlock = async (block) => {
         -->
         `
 
-        blockHtml += `<h3 style='background-color:#f3d16e;'>
-        `;
+        // blockHtml += `<h3 data-id="${block.id}" style='background-color:#f3d16e;'>
+        // `;
+        blockTag = "h3";
+        blockStyle = "background-color:#f3d16e;";
         for(const child of block.heading_3.rich_text){
             blockHtml += renderBlock(child);
         }
-        blockHtml += `</h3>
-        `;
+        // blockHtml += `</h3>
+        // `;
     }
 
     if(block.type == TYPE.IMAGE){
         const url = block.image.file.url;
-
+        let imgsrc = "";
         if(CONFIG.IMAGE_MODE == "base64"){
             const base64 = await convertImageToBase64(url);
-            blockHtml += `<img style="width:20vw" src="data:image/png;base64,${base64}">
-            `
+            // blockHtml += `<img data-id="${block.id}" style="width:20vw" src="data:image/png;base64,${base64}">
+            // `
+            imgsrc = "data:image/png;base64,"+base64;
         }else if(CONFIG.IMAGE_MODE == "url"){
-            blockHtml += `<img style="width:20vw" src="${url}">
-            `
+            // blockHtml += `<img data-id="${block.id}" style="width:20vw" src="${url}">
+            // `
+            imgsrc = url;
         }else if(CONFIG.IMAGE_MODE == "folder"){
-            blockHtml += `<img style="width:20vw" src="${await saveImageToFolder(url, block.id)}">
-            `
+            // blockHtml += `<img data-id="${block.id}" style="width:20vw" src="${await saveImageToFolder(url, block.id)}">
+            // `
+            imgsrc = await saveImageToFolder(url, block.id);
         }
+        // blockHtml += `<img data-id="${block.id}" style="width:20vw" src="${imgsrc}">
+        // `
+        blockTag = "img";
+        blockStyle = "width:20vw";
+        blockAttributes = `src="${imgsrc}"`;
     }
 
     if(block.type == TYPE.COLUMN_LIST){
-        blockHtml += `<div `
-
+        // blockHtml += `<div data-id="${block.id}" `
+        blockTag = "div";
         // get children
         const children = await notion.blocks.children.list({
             block_id: block.id,
             page_size: 100
         })
         const childBlocks = children.results;
-        blockHtml += `style="display:grid;grid-template-columns:repeat(${childBlocks.length -1 }, 1fr) auto;gap:20px;">
-        `
+        // blockHtml += `style="display:grid;grid-template-columns:repeat(${childBlocks.length -1 }, 1fr) auto;gap:20px;">
+        // `
+        blockStyle = `display:grid;grid-template-columns:repeat(${childBlocks.length -1 }, 1fr) auto;gap:20px;text-align:left;`;
         for(const child of childBlocks){
             blockHtml += await handleBlock(child);
         }
-        blockHtml += `</div>
-        `
+        // blockHtml += `</div>
+        // `
     }
 
     if(block.type == TYPE.COLUMN){
-        blockHtml += `<div>
-        `
+        // blockHtml += `<div data-id="${block.id}">
+        // `
+        blockTag = "div";
         const children = await notion.blocks.children.list({
             block_id: block.id,
             page_size: 100
@@ -253,25 +291,17 @@ const handleBlock = async (block) => {
         for(const child of childBlocks){
             blockHtml += await handleBlock(child);
         }
-        blockHtml += `</div>
-        `
+        // blockHtml += `</div>
+        // `
     }
 
-    if(block.type == TYPE.BULLET_LIST){
-        blockHtml += `<ul>
-        `
-        for(const child of block.bulleted_list_item.rich_text){
-            blockHtml += `<li>${renderBlock(child)}</li>
-            `
-        }
-        blockHtml += `</ul>
-        `
-    }
+
 
     if(block.type == TYPE.TOGGLE){
-        blockHtml += `<details>
+        blockTag = null;
+        blockHtml += `<details data-id="${block.id}" style="text-align:left;">
         `
-        blockHtml += `<summary>${block.toggle.rich_text[0].plain_text}</summary>
+        blockHtml += `<summary style="text-align:left;">${block.toggle.rich_text[0].plain_text}</summary>
         `
         const children = await notion.blocks.children.list({
             block_id: block.id,
@@ -287,7 +317,8 @@ const handleBlock = async (block) => {
 
 
     if(block.type == TYPE.CALLOUT){
-        blockHtml += `<div style="background-color:${block.callout.color.split("_background")[0]};padding:10px;border-radius:5px;">`
+        blockTag = null;
+        blockHtml += `<div data-id="${block.id}" style="background-color:${block.callout.color.split("_background")[0]};padding:10px;border-radius:5px;text-align:left;">`
         blockHtml += `<span>${block.callout.icon.emoji}</span>&nbsp;`
         for(const child of block.callout.rich_text){
             blockHtml += renderBlock(child);
@@ -308,7 +339,91 @@ const handleBlock = async (block) => {
         `
     }
 
+    if(block.type == TYPE.BULLET_LIST){
+        blockTag = null;
+        if(isBulletList == false){
+            blockHtml += `<ul style="text-align:left;">
+            `
+        }
+        isBulletList = true;
+        blockHtml += `<li data-id="${block.id}" style="text-align:left;">`
+        for(const child of block.bulleted_list_item.rich_text){
+            blockHtml += renderBlock(child);
+        }
+        if(block.has_children){
+            const children = await notion.blocks.children.list({
+                block_id: block.id,
+                page_size: 100
+            })
+            const childBlocks = children.results;
+            blockHtml += `<ul style="text-align:left;">
+            `
+            for(const child of childBlocks){
+                blockHtml += await handleBlock(child);
+            }
+            blockHtml += `</ul>
+            `
+        }
 
+        blockHtml += `</li>
+        `
+    }else{
+        if(isBulletList == true){
+            blockHtml += `</ul>
+            `
+        }
+        isBulletList = false;
+    }
+
+    if(block.type == TYPE.NUMBERED_LIST){
+        blockTag = null;
+        if(isNumberedList == false){
+            blockHtml += `<ol style="text-align:left;">
+            `
+        }
+        isNumberedList = true;
+        blockHtml += `<li data-id="${block.id}" style="text-align:left;">`
+        for(const child of block.numbered_list_item.rich_text){
+            blockHtml += renderBlock(child);
+        }
+        if(block.has_children){
+            const children = await notion.blocks.children.list({
+                block_id: block.id,
+                page_size: 100
+            })
+            const childBlocks = children.results;
+            blockHtml += `<ol style="text-align:left;">
+            `
+            for(const child of childBlocks){
+                blockHtml += await handleBlock(child);
+            }
+            blockHtml += `</ol>
+            `
+        }
+
+        blockHtml += `</li>
+        `
+
+    }else{
+        if(isNumberedList == true){
+            blockHtml += `</ol>
+            `
+        }
+        isNumberedList = false;
+    }
+
+    if(blockTag != "" && blockTag != null){
+        let spacing = ""
+        if(blockTag == "h1" || blockTag == "h2" || blockTag == "h3"){
+            spacing = `
+            `;
+        }
+
+        blockHtml = `${spacing}<${blockTag} data-id="${block.id}" style="text-align:left;${blockStyle}" ${blockAttributes}>
+        ${blockHtml}
+        </${blockTag}>
+        `
+    }
 
     return blockHtml;
 }
@@ -335,10 +450,7 @@ const saveImageToFolder = async (url, id) => {
             const imageFilename = id +'.png';
     
             // if not exists, create subfolder called notion2anki in media folder
-            if(!fs.existsSync(mediaFolder + "/notion2anki")){
-                fs.mkdirSync(mediaFolder + "/notion2anki");
-            }
-            const imagePath = path.join(mediaFolder + "/notion2anki", imageFilename);
+            const imagePath = path.join(mediaFolder, imageFilename);
 
             fs.writeFile(imagePath, Buffer.from(response.data, 'binary'), err => {
               if (err) {
@@ -348,7 +460,7 @@ const saveImageToFolder = async (url, id) => {
 
                     resolve("file://"+imagePath);
                 }else{
-                    resolve("notion2anki/"+imageFilename);
+                    resolve(imageFilename);
                 }
               }
             });
