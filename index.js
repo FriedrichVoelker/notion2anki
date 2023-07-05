@@ -150,6 +150,7 @@ const saveToFile = async (html, output_path, error = null) => {
 
 let isNumberedList = false;
 let isBulletList = false;
+let iAmAChild = false;
 const handleBlock = async (block) => {
 
     log("info", `Handling block ${block.id}`)
@@ -164,8 +165,6 @@ const handleBlock = async (block) => {
 
 
     if(block.type == TYPE.PARAGRAPH){
-        // blockHtml += `<p data-id="${block.id}">
-        // `;
         blockTag = "p";
         for(const child of block.paragraph.rich_text){
             blockHtml += renderBlock(child);
@@ -181,51 +180,34 @@ const handleBlock = async (block) => {
                 blockHtml += await handleBlock(child);
             }
         }
-        // blockHtml += `</p>
-        // `;
     }
 
     if(block.type == TYPE.DIVIDER){
-        // blockHtml += `<hr data-id="${block.id}">
-        // `
         blockTag = "hr";
     }
 
     if(block.type == TYPE.HEADING_1){
-        // blockHtml += `<h1 data-id="${block.id}" style='background-color:#f3d16e;'>
-        // `;
         blockTag = "h1";
         blockStyle = "background-color:#f3d16e;";
         for(const child of block.heading_1.rich_text){
             blockHtml += renderBlock(child);
         }
-        // blockHtml += `</h1>
-        // `;
     }
 
     if(block.type == TYPE.HEADING_2){
-        // blockHtml += `<h2 data-id="${block.id}" style='background-color:#f3d16e;'>
-        // `;
         blockTag = "h2";
         blockStyle = "background-color:#f3d16e;";
         for(const child of block.heading_2.rich_text){
             blockHtml += renderBlock(child);
         }
-        // blockHtml += `</h2>
-        // `;
     }
 
     if(block.type == TYPE.HEADING_3){
-
-        // blockHtml += `<h3 data-id="${block.id}" style='background-color:#f3d16e;'>
-        // `;
         blockTag = "h3";
         blockStyle = "background-color:#f3d16e;";
         for(const child of block.heading_3.rich_text){
             blockHtml += renderBlock(child);
         }
-        // blockHtml += `</h3>
-        // `;
     }
 
     if(block.type == TYPE.IMAGE){
@@ -233,58 +215,44 @@ const handleBlock = async (block) => {
         let imgsrc = "";
         if(CONFIG.IMAGE_MODE == "base64"){
             const base64 = await convertImageToBase64(url);
-            // blockHtml += `<img data-id="${block.id}" style="width:20vw" src="data:image/png;base64,${base64}">
-            // `
             imgsrc = "data:image/png;base64,"+base64;
         }else if(CONFIG.IMAGE_MODE == "url"){
-            // blockHtml += `<img data-id="${block.id}" style="width:20vw" src="${url}">
-            // `
             imgsrc = url;
         }else if(CONFIG.IMAGE_MODE == "folder"){
-            // blockHtml += `<img data-id="${block.id}" style="width:20vw" src="${await saveImageToFolder(url, block.id)}">
-            // `
             imgsrc = await saveImageToFolder(url, block.id);
         }
-        // blockHtml += `<img data-id="${block.id}" style="width:20vw" src="${imgsrc}">
-        // `
         blockTag = "img";
         blockStyle = "width:20vw";
         blockAttributes = `src="${imgsrc}"`;
     }
 
     if(block.type == TYPE.COLUMN_LIST){
-        // blockHtml += `<div data-id="${block.id}" `
         blockTag = "div";
-        // get children
         const children = await notion.blocks.children.list({
             block_id: block.id,
             page_size: 100
         })
         const childBlocks = children.results;
-        // blockHtml += `style="display:grid;grid-template-columns:repeat(${childBlocks.length -1 }, 1fr) auto;gap:20px;">
-        // `
         blockStyle = `display:grid;grid-template-columns:repeat(${childBlocks.length -1 }, 1fr) auto;gap:20px;text-align:left;`;
+        iAmAChild = true;
         for(const child of childBlocks){
             blockHtml += await handleBlock(child);
-        }
-        // blockHtml += `</div>
-        // `
+        }   
+        iAmAChild = false;
     }
 
     if(block.type == TYPE.COLUMN){
-        // blockHtml += `<div data-id="${block.id}">
-        // `
         blockTag = "div";
         const children = await notion.blocks.children.list({
             block_id: block.id,
             page_size: 100
         })
         const childBlocks = children.results;
+        iAmAChild = true;
         for(const child of childBlocks){
             blockHtml += await handleBlock(child);
         }
-        // blockHtml += `</div>
-        // `
+        iAmAChild = false;
     }
 
 
@@ -300,9 +268,11 @@ const handleBlock = async (block) => {
             page_size: 100
         })
         const childBlocks = children.results;
+        iAmAChild = true;
         for(const child of childBlocks){
             blockHtml += await handleBlock(child);
         }
+        iAmAChild = false;
         blockHtml += `</details>
         `
     }
@@ -322,23 +292,37 @@ const handleBlock = async (block) => {
                 page_size: 100
             })
             const childBlocks = children.results;
+            iAmAChild = true;
             for(const child of childBlocks){
                 blockHtml += await handleBlock(child);
             }
+            iAmAChild = false;
         }
+        if(!iAmAChild){
+            if(isNumberedList == true){
+                blockHtml += `</ol>
+                `
+                isNumberedList = false;
+            }
+            if(isBulletList == true){
+                blockHtml += `</ul>
+                `
+                isBulletList = false;
+            }
 
-        blockHtml += `</div>
-        `
+            blockHtml += `</div>
+            `
+        }
     }
 
     if(block.type == TYPE.BULLET_LIST){
         blockTag = null;
         if(isBulletList == false){
-            blockHtml += `<ul style="text-align:left;">
+            blockHtml += `<ul style="text-align:left;margin:0px 0px;">
             `
         }
         isBulletList = true;
-        blockHtml += `<li data-id="${block.id}" style="text-align:left;padding:7px 0px;">`
+        blockHtml += `<li data-id="${block.id}" style="text-align:left;padding:5px 0px;">`
         for(const child of block.bulleted_list_item.rich_text){
             blockHtml += renderBlock(child);
         }
@@ -350,9 +334,11 @@ const handleBlock = async (block) => {
             const childBlocks = children.results;
             blockHtml += `<ul style="text-align:left;">
             `
+            iAmAChild = true;
             for(const child of childBlocks){
                 blockHtml += await handleBlock(child);
             }
+            iAmAChild = false;
             blockHtml += `</ul>
             `
         }
@@ -370,11 +356,11 @@ const handleBlock = async (block) => {
     if(block.type == TYPE.NUMBERED_LIST){
         blockTag = null;
         if(isNumberedList == false){
-            blockHtml += `<ol style="text-align:left;margin-left:2rem;">
+            blockHtml += `<ol style="text-align:left;margin-left:2rem;margin-top:0px;margin-bottom:0px;">
             `
         }
         isNumberedList = true;
-        blockHtml += `<li data-id="${block.id}" style="text-align:left;padding:7px 0px;">`
+        blockHtml += `<li data-id="${block.id}" style="text-align:left;padding:5px 0px;">`
         for(const child of block.numbered_list_item.rich_text){
             blockHtml += renderBlock(child);
         }
@@ -386,9 +372,11 @@ const handleBlock = async (block) => {
             const childBlocks = children.results;
             blockHtml += `<ol style="text-align:left;">
             `
+            iAmAChild = true;
             for(const child of childBlocks){
                 blockHtml += await handleBlock(child);
             }
+            iAmAChild = false;
             blockHtml += `</ol>
             `
         }
