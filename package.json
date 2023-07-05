@@ -1,6 +1,6 @@
 {
   "name": "notion2anki",
-  "version": "1.2",
+  "version": "1.6",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "bin": "./index.js",
+  "private": true,
   "pkg": {
     "assets": [
       "node_modules/**/*",

@@ -217,14 +217,6 @@ const handleBlock = async (block) => {
 
     if(block.type == TYPE.HEADING_3){
 
-        blockHtml += `
-        <!-- 
-        
-        New Block 
-        
-        -->
-        `
-
         // blockHtml += `<h3 data-id="${block.id}" style='background-color:#f3d16e;'>
         // `;
         blockTag = "h3";
@@ -346,7 +338,7 @@ const handleBlock = async (block) => {
             `
         }
         isBulletList = true;
-        blockHtml += `<li data-id="${block.id}" style="text-align:left;">`
+        blockHtml += `<li data-id="${block.id}" style="text-align:left;padding:7px 0px;">`
         for(const child of block.bulleted_list_item.rich_text){
             blockHtml += renderBlock(child);
         }
@@ -382,7 +374,7 @@ const handleBlock = async (block) => {
             `
         }
         isNumberedList = true;
-        blockHtml += `<li data-id="${block.id}" style="text-align:left;">`
+        blockHtml += `<li data-id="${block.id}" style="text-align:left;padding:7px 0px;">`
         for(const child of block.numbered_list_item.rich_text){
             blockHtml += renderBlock(child);
         }
@@ -413,16 +405,26 @@ const handleBlock = async (block) => {
     }
 
     if(blockTag != "" && blockTag != null){
-        let spacing = ""
-        if(blockTag == "h1" || blockTag == "h2" || blockTag == "h3"){
-            spacing = `
-            `;
-        }
 
-        blockHtml = `${spacing}<${blockTag} data-id="${block.id}" style="text-align:left;${blockStyle}" ${blockAttributes}>
+        blockHtml = `<${blockTag} data-id="${block.id}" style="text-align:left;${blockStyle}" ${blockAttributes}>
         ${blockHtml}
         </${blockTag}>
         `
+        if(blockTag == "h1" || blockTag == "h2"){
+            blockHtml = `
+            ` + blockHtml;
+        }
+        if(blockTag == "h3"){
+            
+
+        blockHtml = `
+        <!-- 
+        
+        New Block 
+        
+        -->
+        ` + blockHtml;
+        }
     }
 
     return blockHtml;
