@@ -370,7 +370,7 @@ const handleBlock = async (block) => {
     if(block.type == TYPE.NUMBERED_LIST){
         blockTag = null;
         if(isNumberedList == false){
-            blockHtml += `<ol style="text-align:left;">
+            blockHtml += `<ol style="text-align:left;margin-left:2rem;">
             `
         }
         isNumberedList = true;
