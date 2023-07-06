@@ -151,6 +151,8 @@ const saveToFile = async (html, output_path, error = null) => {
 let isNumberedList = false;
 let isBulletList = false;
 let iAmAChild = 0;
+let lastChild = 0;
+let needsClosing = "";
 const handleBlock = async (block) => {
 
     log("info", `Handling block ${block.id}`)
@@ -159,20 +161,17 @@ const handleBlock = async (block) => {
 
     let blockHtml = "";
 
-    let blockTag = "";
-    let blockStyle = "";
-    let blockAttributes = "";
-
     if(block.type == TYPE.BULLET_LIST){
-        blockTag = null;
         if(iAmAChild <= 0 && isNumberedList == true){
             blockHtml += `</ol>
             `
             isNumberedList = false;
         }
-        if(isBulletList == false){
+        if(isBulletList == false || lastChild < iAmAChild){
+            lastChild = iAmAChild;
             blockHtml += `<ul style="text-align:left;margin:0px 0px;">
             `
+            needsClosing = "</ul>"
         }
         isBulletList = true;
         blockHtml += `<li data-id="${block.id}" style="text-align:left;padding:5px 0px;">`
@@ -187,11 +186,18 @@ const handleBlock = async (block) => {
             const childBlocks = children.results;
             blockHtml += `<div style="text-align:left;margin-left:-1.4rem;">
             `
+            lastChild = iAmAChild;
             iAmAChild++;
             for(const child of childBlocks){
                 blockHtml += await handleBlock(child);
             }
+            
+            blockHtml += needsClosing;
+            if(iAmAChild <= 0){
+                needsClosing = "";
+            }
             iAmAChild--;
+            lastChild = iAmAChild;
             blockHtml += `</div>
             `
         }
@@ -207,10 +213,11 @@ const handleBlock = async (block) => {
     }
 
     if(block.type == TYPE.NUMBERED_LIST){
-        blockTag = null;
-        if(isNumberedList == false){
+        if(isNumberedList == false || lastChild < iAmAChild){
+            lastChild = iAmAChild;
             blockHtml += `<ol style="text-align:left;margin:0px 0px;">
             `
+            needsClosing = "</ol>"
         }
         isNumberedList = true;
         blockHtml += `<li data-id="${block.id}" style="text-align:left;padding:5px 0px;">`
@@ -225,11 +232,17 @@ const handleBlock = async (block) => {
             const childBlocks = children.results;
             blockHtml += `<div style="text-align:left;margin-left:-1.4rem;">
             `
+            lastChild = iAmAChild;
             iAmAChild++;
             for(const child of childBlocks){
                 blockHtml += await handleBlock(child);
             }
+            blockHtml += needsClosing;
+            if(iAmAChild <= 0){
+                needsClosing = "";
+            }
             iAmAChild--;
+            lastChild = iAmAChild;
             blockHtml += `</div>
             `
         }
@@ -326,9 +339,6 @@ const handleBlock = async (block) => {
         }else if(CONFIG.IMAGE_MODE == "folder"){
             imgsrc = await saveImageToFolder(url, block.id);
         }
-        // blockTag = "img";
-        // blockStyle = "width:20vw";
-        // blockAttributes = `src="${imgsrc}"`;
         blockHtml += `<img data-id="${block.id}" style="text-align:left;width:20vw" src="${imgsrc}">
         `
     }
@@ -371,7 +381,6 @@ const handleBlock = async (block) => {
 
 
     if(block.type == TYPE.TOGGLE){
-        blockTag = null;
         blockHtml += `<details data-id="${block.id}" style="text-align:left;">
         `
         blockHtml += `<summary style="text-align:left;">${block.toggle.rich_text[0].plain_text}</summary>
