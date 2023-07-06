@@ -185,25 +185,25 @@ const handleBlock = async (block) => {
                 page_size: 100
             })
             const childBlocks = children.results;
-            blockHtml += `<ul style="text-align:left;">
+            blockHtml += `<div style="text-align:left;margin-left:-1.4rem;">
             `
             iAmAChild++;
             for(const child of childBlocks){
                 blockHtml += await handleBlock(child);
             }
             iAmAChild--;
-            blockHtml += `</ul>
+            blockHtml += `</div>
             `
         }
 
         blockHtml += `</li>
         `
     }else{
-        if(isBulletList == true){
+        if(isBulletList == true && iAmAChild <= 0){
             blockHtml += `</ul>
             `
+            isBulletList = false;
         }
-        isBulletList = false;
     }
 
     if(block.type == TYPE.NUMBERED_LIST){
@@ -223,14 +223,14 @@ const handleBlock = async (block) => {
                 page_size: 100
             })
             const childBlocks = children.results;
-            blockHtml += `<ol style="text-align:left;">
+            blockHtml += `<div style="text-align:left;margin-left:-1.4rem;">
             `
             iAmAChild++;
             for(const child of childBlocks){
                 blockHtml += await handleBlock(child);
             }
             iAmAChild--;
-            blockHtml += `</ol>
+            blockHtml += `</div>
             `
         }
 
@@ -238,16 +238,17 @@ const handleBlock = async (block) => {
         `
 
     }else{
-        if(isNumberedList == true){
+        if(isNumberedList == true && iAmAChild <= 0){
             blockHtml += `</ol>
             `
+            isNumberedList = false;
         }
-        isNumberedList = false;
     }
 
 
     if(block.type == TYPE.PARAGRAPH){
-        blockHtml += "<p>";
+        blockHtml += `<p style="text-align:left;">
+        `;
         for(const child of block.paragraph.rich_text){
             blockHtml += renderBlock(child);
         }
@@ -262,7 +263,8 @@ const handleBlock = async (block) => {
                 blockHtml += await handleBlock(child);
             }
         }
-        blockHtml += "</p>";
+        blockHtml += `</p>
+        `;
     }
 
     if(block.type == TYPE.DIVIDER){
@@ -271,7 +273,7 @@ const handleBlock = async (block) => {
 
     if(block.type == TYPE.HEADING_1){
         blockHtml += `
-        <h1 style="background-color:#f3d16e;">
+        <h1 style="background-color:#f3d16e;text-align:left;">
         `
         for(const child of block.heading_1.rich_text){
             blockHtml += renderBlock(child);
@@ -282,7 +284,7 @@ const handleBlock = async (block) => {
 
     if(block.type == TYPE.HEADING_2){
         blockHtml += `
-        <h2 style="background-color:#f3d16e;">
+        <h2 style="background-color:#f3d16e;text-align:left;">
         `
         for(const child of block.heading_2.rich_text){
             blockHtml += renderBlock(child);
@@ -298,7 +300,7 @@ const handleBlock = async (block) => {
         New Block 
         
         -->
-        <h3 style="background-color:#f3d16e;">
+        <h3 style="background-color:#f3d16e;text-align:left;">
         `
         for(const child of block.heading_3.rich_text){
             blockHtml += renderBlock(child);
@@ -350,7 +352,7 @@ const handleBlock = async (block) => {
     }
 
     if(block.type == TYPE.COLUMN){
-        blockHtml += `<div>
+        blockHtml += `<div style="text-align:left;">
         `
         const children = await notion.blocks.children.list({
             block_id: block.id,
@@ -427,29 +429,6 @@ const handleBlock = async (block) => {
         blockHtml += `</div>
         `
     }
-
-    /*if(blockTag != "" && blockTag != null){
-
-        blockHtml = `<${blockTag} data-id="${block.id}" style="text-align:left;${blockStyle}" ${blockAttributes}>
-        ${blockHtml}
-        </${blockTag}>
-        `
-        if(blockTag == "h1" || blockTag == "h2"){
-            blockHtml = `
-            ` + blockHtml;
-        }
-        if(blockTag == "h3"){
-            
-
-        blockHtml = `
-        <!-- 
-        
-        New Block 
-        
-        -->
-        ` + blockHtml;
-        }
-    }*/
 
     return blockHtml;
 }
