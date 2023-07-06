@@ -59,7 +59,6 @@ const TYPE = {
 let html = `<style>
 body{
     font-family:ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol";
-    padding: 20px;
 }
 </style>
 
@@ -115,7 +114,8 @@ const initConvert = async (input, output_path) => {
 
                 html += await handleBlock(block);
             }catch(e){
-                log("error", "Error while handling block, stopping...")
+                log("error", "Error while handling "+block.id+", stopping...")
+                console.log(e);
                 saveToFile(html, output_path, true);
                 // process.exit(1);
             }
@@ -150,7 +150,7 @@ const saveToFile = async (html, output_path, error = null) => {
 
 let isNumberedList = false;
 let isBulletList = false;
-let iAmAChild = false;
+let iAmAChild = 0;
 const handleBlock = async (block) => {
 
     log("info", `Handling block ${block.id}`)
@@ -163,160 +163,13 @@ const handleBlock = async (block) => {
     let blockStyle = "";
     let blockAttributes = "";
 
-
-    if(block.type == TYPE.PARAGRAPH){
-        blockTag = "p";
-        for(const child of block.paragraph.rich_text){
-            blockHtml += renderBlock(child);
-        }
-
-        if(block.has_children){
-            const children = await notion.blocks.children.list({
-                block_id: block.id,
-                page_size: 100
-            })
-            const childBlocks = children.results;
-            for(const child of childBlocks){
-                blockHtml += await handleBlock(child);
-            }
-        }
-    }
-
-    if(block.type == TYPE.DIVIDER){
-        blockTag = "hr";
-    }
-
-    if(block.type == TYPE.HEADING_1){
-        blockTag = "h1";
-        blockStyle = "background-color:#f3d16e;";
-        for(const child of block.heading_1.rich_text){
-            blockHtml += renderBlock(child);
-        }
-    }
-
-    if(block.type == TYPE.HEADING_2){
-        blockTag = "h2";
-        blockStyle = "background-color:#f3d16e;";
-        for(const child of block.heading_2.rich_text){
-            blockHtml += renderBlock(child);
-        }
-    }
-
-    if(block.type == TYPE.HEADING_3){
-        blockTag = "h3";
-        blockStyle = "background-color:#f3d16e;";
-        for(const child of block.heading_3.rich_text){
-            blockHtml += renderBlock(child);
-        }
-    }
-
-    if(block.type == TYPE.IMAGE){
-        const url = block.image.file.url;
-        let imgsrc = "";
-        if(CONFIG.IMAGE_MODE == "base64"){
-            const base64 = await convertImageToBase64(url);
-            imgsrc = "data:image/png;base64,"+base64;
-        }else if(CONFIG.IMAGE_MODE == "url"){
-            imgsrc = url;
-        }else if(CONFIG.IMAGE_MODE == "folder"){
-            imgsrc = await saveImageToFolder(url, block.id);
-        }
-        blockTag = "img";
-        blockStyle = "width:20vw";
-        blockAttributes = `src="${imgsrc}"`;
-    }
-
-    if(block.type == TYPE.COLUMN_LIST){
-        blockTag = "div";
-        const children = await notion.blocks.children.list({
-            block_id: block.id,
-            page_size: 100
-        })
-        const childBlocks = children.results;
-        blockStyle = `display:grid;grid-template-columns:repeat(${childBlocks.length -1 }, 1fr) auto;gap:20px;text-align:left;`;
-        iAmAChild = true;
-        for(const child of childBlocks){
-            blockHtml += await handleBlock(child);
-        }   
-        iAmAChild = false;
-    }
-
-    if(block.type == TYPE.COLUMN){
-        blockTag = "div";
-        const children = await notion.blocks.children.list({
-            block_id: block.id,
-            page_size: 100
-        })
-        const childBlocks = children.results;
-        iAmAChild = true;
-        for(const child of childBlocks){
-            blockHtml += await handleBlock(child);
-        }
-        iAmAChild = false;
-    }
-
-
-
-    if(block.type == TYPE.TOGGLE){
-        blockTag = null;
-        blockHtml += `<details data-id="${block.id}" style="text-align:left;">
-        `
-        blockHtml += `<summary style="text-align:left;">${block.toggle.rich_text[0].plain_text}</summary>
-        `
-        const children = await notion.blocks.children.list({
-            block_id: block.id,
-            page_size: 100
-        })
-        const childBlocks = children.results;
-        iAmAChild = true;
-        for(const child of childBlocks){
-            blockHtml += await handleBlock(child);
-        }
-        iAmAChild = false;
-        blockHtml += `</details>
-        `
-    }
-
-
-    if(block.type == TYPE.CALLOUT){
-        blockTag = null;
-        blockHtml += `<div data-id="${block.id}" style="background-color:${block.callout.color.split("_background")[0]};padding:10px;border-radius:5px;text-align:left;">`
-        blockHtml += `<span>${block.callout.icon.emoji}</span>&nbsp;`
-        for(const child of block.callout.rich_text){
-            blockHtml += renderBlock(child);
-        }
-
-        if(block.has_children){
-            const children = await notion.blocks.children.list({
-                block_id: block.id,
-                page_size: 100
-            })
-            const childBlocks = children.results;
-            iAmAChild = true;
-            for(const child of childBlocks){
-                blockHtml += await handleBlock(child);
-            }
-            iAmAChild = false;
-        }
-        if(!iAmAChild){
-            if(isNumberedList == true){
-                blockHtml += `</ol>
-                `
-                isNumberedList = false;
-            }
-            if(isBulletList == true){
-                blockHtml += `</ul>
-                `
-                isBulletList = false;
-            }
-
-            blockHtml += `</div>
-            `
-        }
-    }
-
     if(block.type == TYPE.BULLET_LIST){
         blockTag = null;
+        if(iAmAChild <= 0 && isNumberedList == true){
+            blockHtml += `</ol>
+            `
+            isNumberedList = false;
+        }
         if(isBulletList == false){
             blockHtml += `<ul style="text-align:left;margin:0px 0px;">
             `
@@ -334,11 +187,11 @@ const handleBlock = async (block) => {
             const childBlocks = children.results;
             blockHtml += `<ul style="text-align:left;">
             `
-            iAmAChild = true;
+            iAmAChild++;
             for(const child of childBlocks){
                 blockHtml += await handleBlock(child);
             }
-            iAmAChild = false;
+            iAmAChild--;
             blockHtml += `</ul>
             `
         }
@@ -356,7 +209,7 @@ const handleBlock = async (block) => {
     if(block.type == TYPE.NUMBERED_LIST){
         blockTag = null;
         if(isNumberedList == false){
-            blockHtml += `<ol style="text-align:left;margin-left:2rem;margin-top:0px;margin-bottom:0px;">
+            blockHtml += `<ol style="text-align:left;margin:0px 0px;">
             `
         }
         isNumberedList = true;
@@ -372,11 +225,11 @@ const handleBlock = async (block) => {
             const childBlocks = children.results;
             blockHtml += `<ol style="text-align:left;">
             `
-            iAmAChild = true;
+            iAmAChild++;
             for(const child of childBlocks){
                 blockHtml += await handleBlock(child);
             }
-            iAmAChild = false;
+            iAmAChild--;
             blockHtml += `</ol>
             `
         }
@@ -392,7 +245,190 @@ const handleBlock = async (block) => {
         isNumberedList = false;
     }
 
-    if(blockTag != "" && blockTag != null){
+
+    if(block.type == TYPE.PARAGRAPH){
+        blockHtml += "<p>";
+        for(const child of block.paragraph.rich_text){
+            blockHtml += renderBlock(child);
+        }
+
+        if(block.has_children){
+            const children = await notion.blocks.children.list({
+                block_id: block.id,
+                page_size: 100
+            })
+            const childBlocks = children.results;
+            for(const child of childBlocks){
+                blockHtml += await handleBlock(child);
+            }
+        }
+        blockHtml += "</p>";
+    }
+
+    if(block.type == TYPE.DIVIDER){
+        blockHtml += "<hr>";
+    }
+
+    if(block.type == TYPE.HEADING_1){
+        blockHtml += `
+        <h1 style="background-color:#f3d16e;">
+        `
+        for(const child of block.heading_1.rich_text){
+            blockHtml += renderBlock(child);
+        }
+        blockHtml += `</h1>
+        `
+    }
+
+    if(block.type == TYPE.HEADING_2){
+        blockHtml += `
+        <h2 style="background-color:#f3d16e;">
+        `
+        for(const child of block.heading_2.rich_text){
+            blockHtml += renderBlock(child);
+        }
+        blockHtml += `</h2>
+        `
+    }
+
+    if(block.type == TYPE.HEADING_3){
+        blockHtml += `
+        <!-- 
+        
+        New Block 
+        
+        -->
+        <h3 style="background-color:#f3d16e;">
+        `
+        for(const child of block.heading_3.rich_text){
+            blockHtml += renderBlock(child);
+        }
+        blockHtml += `</h3>
+        `
+    }
+
+    if(block.type == TYPE.IMAGE){
+        let url = "";
+        if(block.image.type == "file"){
+            url = block.image.file.url;
+        }
+        if(block.image.type == "external"){
+            url = block.image.external.url;
+        }
+        let imgsrc = "";
+        if(CONFIG.IMAGE_MODE == "base64"){
+            const base64 = await convertImageToBase64(url);
+            imgsrc = "data:image/png;base64,"+base64;
+        }else if(CONFIG.IMAGE_MODE == "url"){
+            imgsrc = url;
+        }else if(CONFIG.IMAGE_MODE == "folder"){
+            imgsrc = await saveImageToFolder(url, block.id);
+        }
+        // blockTag = "img";
+        // blockStyle = "width:20vw";
+        // blockAttributes = `src="${imgsrc}"`;
+        blockHtml += `<img data-id="${block.id}" style="text-align:left;width:20vw" src="${imgsrc}">
+        `
+    }
+
+    if(block.type == TYPE.COLUMN_LIST){
+        blockHtml += "<div " 
+        const children = await notion.blocks.children.list({
+            block_id: block.id,
+            page_size: 100
+        })
+        const childBlocks = children.results;
+        blockHtml +=  `style="display:grid;grid-template-columns:repeat(${childBlocks.length -1 }, 1fr) auto;gap:20px;text-align:left;">
+        `;
+        iAmAChild++;
+        for(const child of childBlocks){
+            blockHtml += await handleBlock(child);
+        }   
+        iAmAChild--;
+        blockHtml += `</div>
+        `
+    }
+
+    if(block.type == TYPE.COLUMN){
+        blockHtml += `<div>
+        `
+        const children = await notion.blocks.children.list({
+            block_id: block.id,
+            page_size: 100
+        })
+        const childBlocks = children.results;
+        iAmAChild++;
+        for(const child of childBlocks){
+            blockHtml += await handleBlock(child);
+        }
+        iAmAChild--;
+        blockHtml += `</div>
+        `
+    }
+
+
+
+    if(block.type == TYPE.TOGGLE){
+        blockTag = null;
+        blockHtml += `<details data-id="${block.id}" style="text-align:left;">
+        `
+        blockHtml += `<summary style="text-align:left;">${block.toggle.rich_text[0].plain_text}</summary>
+        `
+        const children = await notion.blocks.children.list({
+            block_id: block.id,
+            page_size: 100
+        })
+        const childBlocks = children.results;
+        iAmAChild++;
+        for(const child of childBlocks){
+            blockHtml += await handleBlock(child);
+        }
+        iAmAChild--;
+        blockHtml += `</details>
+        `
+    }
+
+
+    if(block.type == TYPE.CALLOUT){
+        blockHtml += `<div data-id="${block.id}" style="background-color:${block.callout.color.split("_background")[0]};padding:10px;border-radius:5px;text-align:left;">`
+        blockHtml += `<span>${block.callout.icon.emoji}</span>&nbsp;`
+        for(const child of block.callout.rich_text){
+            blockHtml += renderBlock(child);
+        }
+
+        if(block.has_children){
+            const children = await notion.blocks.children.list({
+                block_id: block.id,
+                page_size: 100
+            })
+            const childBlocks = children.results;
+            iAmAChild++;
+            for(const child of childBlocks){
+                blockHtml += await handleBlock(child);
+            }
+            iAmAChild--;
+        }
+        if(iAmAChild <= 0){
+            if(isNumberedList == true){
+                blockHtml += `</ol>
+                `
+                isNumberedList = false;
+            }
+            if(isBulletList == true){
+                blockHtml += `</ul>
+                `
+                isBulletList = false;
+            }
+
+            blockHtml += `</div>
+            `
+        }
+
+        blockHtml += `</div>
+        `
+    }
+
+    /*if(blockTag != "" && blockTag != null){
 
         blockHtml = `<${blockTag} data-id="${block.id}" style="text-align:left;${blockStyle}" ${blockAttributes}>
         ${blockHtml}
@@ -413,7 +449,7 @@ const handleBlock = async (block) => {
         -->
         ` + blockHtml;
         }
-    }
+    }*/
 
     return blockHtml;
 }
