@@ -73,6 +73,10 @@ const initConvert = async (input, output_path) => {
             log("error", "Invalid notion url length error");
             process.exit(1);
         }
+        // clear debug.json file
+        // fs.writeFileSync("debug.json", "")
+
+
         // https://woozy-zucchini-9f7.notion.site/Test-0212a61f84b94818ad67f7a897300801?pvs=4
         // get last part of url
         const pageId = pageIdPart1[pageIdPart1.length - 1].split("?")[0];
@@ -152,8 +156,7 @@ let isNumberedList = false;
 let isBulletList = false;
 let iAmAChild = 0;
 let lastChild = 0;
-let needsClosing = "";
-const handleBlock = async (block) => {
+const handleBlock = async (block, in_bullet = false, in_number = false) => {
 
     log("info", `Handling block ${block.id}`)
     log("debug", block);
@@ -161,17 +164,45 @@ const handleBlock = async (block) => {
 
     let blockHtml = "";
 
-    if(block.type == TYPE.BULLET_LIST){
-        if(iAmAChild <= 0 && isNumberedList == true){
-            blockHtml += `</ol>
+    if(isBulletList && !in_bullet){
+        if(block.type == TYPE.BULLET_LIST){
+            blockHtml += `<li data-id="${block.id}" style="text-align:left;padding:5px 0px;">`
+            for(const child of block.bulleted_list_item.rich_text){
+                blockHtml += renderBlock(child);
+            }
+            if(block.has_children){
+                const children = await notion.blocks.children.list({
+                    block_id: block.id,
+                    page_size: 100
+                })
+                const childBlocks = children.results;
+                blockHtml += `<div style="text-align:left;margin-left:-1.4rem;">
+                `
+                for(const child of childBlocks){
+                    blockHtml += await handleBlock(child, true);
+                }
+                // blockHtml += `</div>
+                // `
+            }
+    
+            blockHtml += `</li>
             `
-            isNumberedList = false;
+    
+            return blockHtml;
+        }else{
+            if(!await getRecursiveIsParentBulletList(block)){
+                blockHtml += `</ul>
+                `
+                
+                isBulletList = false;
+            }
         }
-        if(isBulletList == false || lastChild < iAmAChild){
-            lastChild = iAmAChild;
+    }
+
+    if(block.type == TYPE.BULLET_LIST){
+        if(!isBulletList){
             blockHtml += `<ul style="text-align:left;margin:0px 0px;">
             `
-            needsClosing = "</ul>"
         }
         isBulletList = true;
         blockHtml += `<li data-id="${block.id}" style="text-align:left;padding:5px 0px;">`
@@ -186,38 +217,58 @@ const handleBlock = async (block) => {
             const childBlocks = children.results;
             blockHtml += `<div style="text-align:left;margin-left:-1.4rem;">
             `
-            lastChild = iAmAChild;
-            iAmAChild++;
             for(const child of childBlocks){
-                blockHtml += await handleBlock(child);
+                blockHtml += await handleBlock(child, true);
             }
-            
-            blockHtml += needsClosing;
-            if(iAmAChild <= 0){
-                needsClosing = "";
-            }
-            iAmAChild--;
-            lastChild = iAmAChild;
-            blockHtml += `</div>
-            `
+            // blockHtml += `</div>
+            // `
         }
 
         blockHtml += `</li>
         `
-    }else{
-        if(isBulletList == true && iAmAChild <= 0){
-            blockHtml += `</ul>
+
+        return blockHtml;
+    }
+
+    if(isNumberedList && !in_number){
+        if(block.type == TYPE.NUMBERED_LIST){
+            blockHtml += `<li data-id="${block.id}" style="text-align:left;padding:5px 0px;">`
+            for(const child of block.numbered_list_item.rich_text){
+                blockHtml += renderBlock(child);
+            }
+            if(block.has_children){
+                const children = await notion.blocks.children.list({
+                    block_id: block.id,
+                    page_size: 100
+                })
+                const childBlocks = children.results;
+                blockHtml += `<div style="text-align:left;margin-left:-1.4rem;">
+                `
+                for(const child of childBlocks){
+                    blockHtml += await handleBlock(child, false, true);
+                }
+                // blockHtml += `</div>
+                // `
+            }
+    
+            blockHtml += `</li>
             `
-            isBulletList = false;
+    
+            return blockHtml;
+        }else{
+            if(!await getRecursiveIsParentNumberedList(block)){
+                blockHtml += `</ol>
+                `
+                
+                isBulletList = false;
+            }
         }
     }
 
     if(block.type == TYPE.NUMBERED_LIST){
-        if(isNumberedList == false || lastChild < iAmAChild){
-            lastChild = iAmAChild;
+        if(!isNumberedList){
             blockHtml += `<ol style="text-align:left;margin:0px 0px;">
             `
-            needsClosing = "</ol>"
         }
         isNumberedList = true;
         blockHtml += `<li data-id="${block.id}" style="text-align:left;padding:5px 0px;">`
@@ -232,31 +283,117 @@ const handleBlock = async (block) => {
             const childBlocks = children.results;
             blockHtml += `<div style="text-align:left;margin-left:-1.4rem;">
             `
-            lastChild = iAmAChild;
-            iAmAChild++;
             for(const child of childBlocks){
-                blockHtml += await handleBlock(child);
+                blockHtml += await handleBlock(child, false, true);
             }
-            blockHtml += needsClosing;
-            if(iAmAChild <= 0){
-                needsClosing = "";
-            }
-            iAmAChild--;
-            lastChild = iAmAChild;
-            blockHtml += `</div>
-            `
+            // blockHtml += `</div>
+            // `
         }
 
         blockHtml += `</li>
         `
 
-    }else{
-        if(isNumberedList == true && iAmAChild <= 0){
-            blockHtml += `</ol>
-            `
-            isNumberedList = false;
-        }
+        return blockHtml;
     }
+
+
+
+    // if(block.type == TYPE.BULLET_LIST){
+    //     if(iAmAChild <= 0 && isNumberedList == true){
+    //         blockHtml += `</ol>
+    //         `
+    //         isNumberedList = false;
+    //     }
+    //     if(isBulletList == false || lastChild < iAmAChild){
+    //         lastChild = iAmAChild;
+    //         blockHtml += `<ul style="text-align:left;margin:0px 0px;">
+    //         `
+    //         needsClosing = "</ul>"
+    //     }
+    //     isBulletList = true;
+    //     blockHtml += `<li data-id="${block.id}" style="text-align:left;padding:5px 0px;">`
+    //     for(const child of block.bulleted_list_item.rich_text){
+    //         blockHtml += renderBlock(child);
+    //     }
+    //     if(block.has_children){
+    //         const children = await notion.blocks.children.list({
+    //             block_id: block.id,
+    //             page_size: 100
+    //         })
+    //         const childBlocks = children.results;
+    //         blockHtml += `<div style="text-align:left;margin-left:-1.4rem;">
+    //         `
+    //         lastChild = iAmAChild;
+    //         iAmAChild++;
+    //         for(const child of childBlocks){
+    //             blockHtml += await handleBlock(child);
+    //         }
+            
+    //         blockHtml += needsClosing;
+    //         if(iAmAChild <= 0){
+    //             needsClosing = "";
+    //         }
+    //         iAmAChild--;
+    //         lastChild = iAmAChild;
+    //         blockHtml += `</div>
+    //         `
+    //     }
+
+    //     blockHtml += `</li>
+    //     `
+    // }else{
+    //     if(isBulletList == true && iAmAChild <= 0){
+    //         blockHtml += `</ul>
+    //         `
+    //         isBulletList = false;
+    //     }
+    // }
+
+    // if(block.type == TYPE.NUMBERED_LIST){
+    //     if(isNumberedList == false || lastChild < iAmAChild){
+    //         lastChild = iAmAChild;
+    //         blockHtml += `<ol style="text-align:left;margin:0px 0px;">
+    //         `
+    //         needsClosing = "</ol>"
+    //     }
+    //     isNumberedList = true;
+    //     blockHtml += `<li data-id="${block.id}" style="text-align:left;padding:5px 0px;">`
+    //     for(const child of block.numbered_list_item.rich_text){
+    //         blockHtml += renderBlock(child);
+    //     }
+    //     if(block.has_children){
+    //         const children = await notion.blocks.children.list({
+    //             block_id: block.id,
+    //             page_size: 100
+    //         })
+    //         const childBlocks = children.results;
+    //         blockHtml += `<div style="text-align:left;margin-left:-1.4rem;">
+    //         `
+    //         lastChild = iAmAChild;
+    //         iAmAChild++;
+    //         for(const child of childBlocks){
+    //             blockHtml += await handleBlock(child);
+    //         }
+    //         blockHtml += needsClosing;
+    //         if(iAmAChild <= 0){
+    //             needsClosing = "";
+    //         }
+    //         iAmAChild--;
+    //         lastChild = iAmAChild;
+    //         blockHtml += `</div>
+    //         `
+    //     }
+
+    //     blockHtml += `</li>
+    //     `
+
+    // }else{
+    //     if(isNumberedList == true && iAmAChild <= 0){
+    //         blockHtml += `</ol>
+    //         `
+    //         isNumberedList = false;
+    //     }
+    // }
 
 
     if(block.type == TYPE.PARAGRAPH){
@@ -431,8 +568,8 @@ const handleBlock = async (block) => {
                 isBulletList = false;
             }
 
-            blockHtml += `</div>
-            `
+            // blockHtml += `</div>
+            // `
         }
 
         blockHtml += `</div>
@@ -440,6 +577,24 @@ const handleBlock = async (block) => {
     }
 
     return blockHtml;
+}
+
+const getRecursiveIsParentBulletList = async (block) => {
+    if(block.type == TYPE.BULLET_LIST)return true;
+    if(block.parent == null)return false;
+    if(block.parent.type != "block_id") return false;
+
+    let parent = await notion.blocks.retrieve({ block_id: block.parent.block_id })
+    return await getRecursiveIsParentBulletList(parent);
+}
+
+const getRecursiveIsParentNumberedList = async (block) => {
+    if(block.type == TYPE.NUMBERED_LIST)return true;
+    if(block.parent == null)return false;
+    if(block.parent.type != "block_id") return false;
+
+    let parent = await notion.blocks.retrieve({ block_id: block.parent.block_id })
+    return await getRecursiveIsParentNumberedList(parent);
 }
 
 const convertImageToBase64 = async (url) => {
@@ -588,8 +743,16 @@ const log = (level, message) => {
 
     // if level is error, save to error.log
     if(level.toUpperCase() == "ERROR"){
-        fs.writeFileSync("error.log", message);
+        // fs.writeFileSync("error.log", message);
+        fs.appendFileSync("error.log", message)
     }
+
+    // if(level.toUpperCase() == "DEBUG"){
+
+
+
+    //     fs.appendFileSync("debug.json", JSON.stringify(message) + ",");
+    // }
 
 
     const LEVELS = {
